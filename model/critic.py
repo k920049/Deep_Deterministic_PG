@@ -4,6 +4,7 @@ import numpy as np
 initializer = tf.variance_scaling_initializer()
 activation = tf.nn.elu
 learning_rate = 1e-3
+ratio = 1e-2
 
 class Critic:
 
@@ -29,17 +30,17 @@ class Critic:
             self._y = tf.placeholder(dtype=tf.float32, shape=(None, self.n_action))
 
             with tf.variable_scope("state"):
-                hidden_state = tf.layers.dense(inputs=self._state, units=self.n_units, activation=activation, kernel_initializer=initializer)
+                self.hidden_state = tf.layers.dense(inputs=self._state, units=self.n_units, activation=activation, kernel_initializer=initializer)
                 for _ in range(self.n_layers - 1):
-                    hidden_state = tf.layers.dense(inputs=hidden_state, units=self.n_units, activation=activation, kernel_initializer=initializer)
+                    self.hidden_state = tf.layers.dense(inputs=self.hidden_state, units=self.n_units, activation=activation, kernel_initializer=initializer)
 
             with tf.variable_scope("action"):
-                hidden_action = tf.layers.dense(inputs=self._action, units=self.n_units, activation=activation, kernel_initializer=initializer)
+                self.hidden_action = tf.layers.dense(inputs=self._action, units=self.n_units, activation=activation, kernel_initializer=initializer)
                 for _ in range(self.n_layers - 1):
-                    hidden_action = tf.layers.dense(inputs=hidden_action, units=self.n_units, activation=activation, kernel_initializer=initializer)
+                    self.hidden_action = tf.layers.dense(inputs=self.hidden_action, units=self.n_units, activation=activation, kernel_initializer=initializer)
             # surrogate the network
-            surrogate = hidden_state + hidden_action
-            self._q_value = tf.layers.dense(inputs=surrogate, units=1, activation=None, kernel_initializer=initializer)
+            self.surrogate = self.hidden_state + self.hidden_action
+            self._q_value = tf.layers.dense(inputs=self.surrogate, units=1, activation=None, kernel_initializer=initializer)
             self._q_value = tf.identity(self._q_value)
             # train the network
             self._loss = tf.reduce_mean(tf.square(self._y - self._q_value))

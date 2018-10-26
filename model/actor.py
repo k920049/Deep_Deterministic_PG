@@ -3,7 +3,7 @@ import numpy as np
 
 initializer = tf.variance_scaling_initializer()
 activation = tf.nn.elu
-learning_rate = 1e-3
+learning_rate = 1e-4
 
 class Actor:
 
@@ -26,22 +26,21 @@ class Actor:
             self._state = tf.placeholder(dtype=tf.float32, shape=(None, self.n_state))
             self.q_gradient = tf.placeholder("float", [None, self.n_action])
             # first layer
-            hidden = tf.layers.dense(inputs=self._state,
+            self.hidden = tf.layers.dense(inputs=self._state,
                                      units=self.n_units,
                                      activation=activation,
                                      kernel_initializer=initializer)
             # the rest of the layers
             for _ in range(self.n_layers - 1):
-                hidden = tf.layers.dense(inputs=hidden,
+                self.hidden = tf.layers.dense(inputs=self.hidden,
                                          units=self.n_units,
                                          activation=activation,
                                          kernel_initializer=initializer)
 
-            self._action = tf.layers.dense(inputs=hidden,
+            self._action = tf.layers.dense(inputs=self.hidden,
                                           units=self.n_action,
                                           activation=tf.nn.tanh,
                                           kernel_initializer=initializer)
-
             self.parameters_gradients = tf.gradients(self._action, self.get_variables(), -self.q_gradient)
             self.optimizer = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(self.parameters_gradients, self.get_variables()))
 

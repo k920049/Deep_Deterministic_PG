@@ -6,14 +6,15 @@ from model.actor import Actor
 from model.critic import Critic
 
 env = gym.make("MountainCarContinuous-v0")
-env._max_episode_steps = 10000
+# env._max_episode_steps = 10000
 
 input_size = env.observation_space.shape[0]
 output_size = env.action_space.shape[0]
 
 dis = 0.99
-REPLAY_MEMORY = 50000
+REPLAY_MEMORY = 10000
 tao = 1e-3
+printed = False
 
 def replay_train(critic : Critic, critic_copy : Critic, actor : Actor, actor_copy : Actor, train_batch):
     state_stack = np.empty(input_size).reshape(1, input_size)
@@ -44,26 +45,34 @@ def replay_train(critic : Critic, critic_copy : Critic, actor : Actor, actor_cop
         sampled_action_stack = np.vstack([sampled_action_stack, s_a])
         y_stack = np.vstack([y_stack, y])
 
+    state_stack = np.delete(state_stack, 0, 0)
+    action_stack = np.delete(action_stack, 0, 0)
+    sampled_action_stack = np.delete(sampled_action_stack, 0, 0)
+    y_stack = np.delete(y_stack, 0, 0)
+
     loss, _ = critic.update(state_stack, action_stack, y_stack)
     gradient = critic.get_gradient(state_stack, sampled_action_stack)
     actor.update(state_stack, gradient)
 
     return loss
 
-def get_copy_var_ops(*, dest_scope_name="target", src_scope_name="main", op_name="init"):
+def get_copy_var_ops(dest_vars, src_vars, op_name="init"):
     # Copy Variables src_scope to dest_scope
     op_holder = []
 
-    src_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=src_scope_name)
-    dest_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=dest_scope_name)
-    soft_update = tf.train.ExponentialMovingAverage(1.0 - tao)
+    #src_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=src_scope_name)
+    #dest_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=dest_scope_name)
+
+    print(src_vars)
 
     if op_name == "init":
         for src_var, dest_var in zip(src_vars, dest_vars):
             op_holder.append(dest_var.assign(src_var.value()))
+        print(len(op_holder))
     elif op_name == "soft":
         for src_var, dest_var in zip(src_vars, dest_vars):
-            op_holder.append(soft_update.apply([dest_var, src_var]))
+            op_holder.append(dest_var.assign((1.0 - tao) * dest_var.value() + tao * src_var.value()))
+        print(len(op_holder))
     return op_holder
 
 def bot_play(actor : Actor):
@@ -75,7 +84,6 @@ def bot_play(actor : Actor):
         env.render()
         a = actor.action(s)
         s, reward, done, _ = env.step(a)
-        s = preprocess(s)
         reward_sum += reward
 
         if done:
